@@ -1,4 +1,37 @@
-# VPC
+# ✅ Get the latest Ubuntu 22.04 LTS AMI
+data "aws_ami" "ubuntu_latest" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical (Ubuntu)
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# ✅ Generate SSH key
+resource "tls_private_key" "ec2_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "infra_runner_key" {
+  key_name   = "infra-runner-key"
+  public_key = tls_private_key.ec2_key.public_key_openssh
+}
+
+resource "local_file" "private_key" {
+  content         = tls_private_key.ec2_key.private_key_pem
+  filename        = "${path.module}/infra-runner-key.pem"
+  file_permission = "0600"
+}
+
+# ✅ VPC
 resource "aws_vpc" "runner_vpc" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -8,7 +41,7 @@ resource "aws_vpc" "runner_vpc" {
   }
 }
 
-# Subnet
+# ✅ Subnet
 resource "aws_subnet" "runner_subnet" {
   vpc_id                  = aws_vpc.runner_vpc.id
   cidr_block              = var.subnet_cidr
@@ -19,7 +52,7 @@ resource "aws_subnet" "runner_subnet" {
   }
 }
 
-# Internet Gateway
+# ✅ Internet Gateway
 resource "aws_internet_gateway" "runner_gw" {
   vpc_id = aws_vpc.runner_vpc.id
   tags = {
@@ -27,7 +60,7 @@ resource "aws_internet_gateway" "runner_gw" {
   }
 }
 
-# Route Table
+# ✅ Route Table
 resource "aws_route_table" "runner_route_table" {
   vpc_id = aws_vpc.runner_vpc.id
   route {
@@ -39,16 +72,15 @@ resource "aws_route_table" "runner_route_table" {
   }
 }
 
-# Associate Route Table with Subnet
 resource "aws_route_table_association" "runner_route_assoc" {
   subnet_id      = aws_subnet.runner_subnet.id
   route_table_id = aws_route_table.runner_route_table.id
 }
 
-# Security Group
+# ✅ Security Group
 resource "aws_security_group" "runner_sg" {
   name        = "infra-runner-sg"
-  description = "Allow SSH and GitHub runner traffic"
+  description = "Allow SSH"
   vpc_id      = aws_vpc.runner_vpc.id
 
   ingress {
@@ -56,7 +88,7 @@ resource "aws_security_group" "runner_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # change to office IP or VPN range for security
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -71,24 +103,13 @@ resource "aws_security_group" "runner_sg" {
   }
 }
 
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "aws_key_pair" "infra_runner_key" {
-  key_name   = "infra-runner-key"
-  public_key = tls_private_key.ec2_key.public_key_openssh
-}
-
-
-# EC2 instance
+# ✅ EC2 Instance
 resource "aws_instance" "github_runner" {
-  ami                    = data.aws_ami.ubuntu_latest.id
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.runner_subnet.id
-  vpc_security_group_ids = [aws_security_group.runner_sg.id]
-  key_name               = aws_key_pair.infra_runner_key.key_name
+  ami                         = data.aws_ami.ubuntu_latest.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.runner_subnet.id
+  vpc_security_group_ids      = [aws_security_group.runner_sg.id]
+  key_name                    = aws_key_pair.infra_runner_key.key_name
   associate_public_ip_address = true
 
   depends_on = [aws_key_pair.infra_runner_key]
@@ -97,4 +118,3 @@ resource "aws_instance" "github_runner" {
     Name = "infra-runner-ec2"
   }
 }
-
