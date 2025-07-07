@@ -71,16 +71,30 @@ resource "aws_security_group" "runner_sg" {
   }
 }
 
+resource "tls_private_key" "ec2_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "infra_runner_key" {
+  key_name   = "infra-runner-key"
+  public_key = tls_private_key.ec2_key.public_key_openssh
+}
+
+
 # EC2 instance
 resource "aws_instance" "github_runner" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.ubuntu_latest.id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.runner_subnet.id
   vpc_security_group_ids = [aws_security_group.runner_sg.id]
-  key_name               = var.key_name
+  key_name               = aws_key_pair.infra_runner_key.key_name
   associate_public_ip_address = true
+
+  depends_on = [aws_key_pair.infra_runner_key]
 
   tags = {
     Name = "infra-runner-ec2"
   }
 }
+
