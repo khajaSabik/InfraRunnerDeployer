@@ -1,0 +1,14 @@
+- hosts: ec2-runner
+  become: true
+  vars:
+    runner_user: ubuntu
+    runner_names:
+      - stg
+      - prod
+    gh_token: "{{ lookup('env', 'GH_TOKEN') }}"
+    org: "houseofanjan"
+    runner_labels:
+      stg: "self-hosted,ubuntu-runner,stg"
+      prod: "self-hosted,ubuntu-runner,prod"
+  roles:
+    - github-runner

@@ -1,0 +1,49 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: true
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - gnupg
+      - lsb-release
+      - docker.io
+      - git
+      - dnsutils
+      - libicu-dev
+      - netcat
+      - rsync
+      - telnet
+      - wget
+      - jq
+    state: present
+  become: true
+
+- name: Install yq
+  get_url:
+    url: https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+    dest: /usr/local/bin/yq
+    mode: '0755'
+  become: true
+
+- name: Add ubuntu user to docker group
+  user:
+    name: "{{ runner_user }}"
+    groups: docker
+    append: yes
+  become: true
+
+- name: Ensure runner directories exist with correct ownership
+  file:
+    path: "{{ runner_dir_base }}/{{ item }}"
+    state: directory
+    owner: "{{ runner_user }}"
+    group: "{{ runner_user }}"
+    mode: '0755'
+  loop: "{{ runner_names }}"
+  become: true

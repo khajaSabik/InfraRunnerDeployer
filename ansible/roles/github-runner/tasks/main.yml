@@ -1,0 +1,9 @@
+- name: Setup environment packages
+  include_tasks: setup.yml
+
+- name: Install and configure GitHub Actions Runner
+  include_tasks: install_runner.yml
+
+# You can optionally include runner configuration after this
+# - name: Configure GitHub runners
+#   import_tasks: configure.yml
